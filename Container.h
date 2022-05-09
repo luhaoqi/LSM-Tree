@@ -4,17 +4,18 @@
 #include <list>
 #include <utility>
 
+template<class K, class V>
 class Container {
 public:
     Container() {}
 
-    virtual void Insert(uint64_t key, std::string value) = 0;
+    virtual void Insert(const K &key, const V &value) = 0;
 
-    virtual std::string Search(uint64_t key) = 0;
+    virtual V Search(const K &key, bool &found) = 0;
 
-    virtual bool Delete(uint64_t key) = 0;
+    virtual bool Delete(const K &key) = 0;
 
     virtual void Display() = 0;
 
-    virtual void Search(uint64_t a, uint64_t b, std::list <std::pair<uint64_t, std::string>> &list) = 0;
+    virtual void Search(const K &a, const K &b, std::list <std::pair<K, V>> &list) = 0;
 };
