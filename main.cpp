@@ -2,7 +2,6 @@
 // Created by 66lhq on 2022/5/7.
 //
 #include "SkipList.h"
-#include "Bloom_Fliter.h"
 #include <string>
 #include <list>
 #include <utility>
@@ -52,8 +51,8 @@ void test_skiplist() {
     std::list <std::pair<uint64_t, std::string>> list;
     SkipList<uint64_t, std::string> SL(0, -1, 0.25);
     SL.Insert(1, string("123"));
-    SL.Insert(1, string("111"));
-    SL.Insert(2, string("222"));
+    SL.Insert(1, string("1"));
+    SL.Insert(2, string("22"));
     SL.Insert(3, string("333"));
     bool flag = false;
     cout << SL.Search(1, flag) << endl;
@@ -66,25 +65,30 @@ void test_skiplist() {
     for (auto x: list)
         cout << x.second << " ";
     cout << endl;
+    SL.get_all_elm(list);
+    for (auto x: list)
+        cout << x.second << " ";
+    cout << endl;
+    cout << SL.size() << " " << SL.dataSize() << endl;
 }
 
-void test_bloom_filter() {
-    Bloom_Fliter B(10240 * 8);
-    for (int i = 0; i < 10; i++) {
-        B.insert(i);
-        B.insert(i * i);
-    }
-    for (int i = 0; i < 20; i++) {
-        cout << B.find(i) << endl;
-    }
-
-
-}
+//void test_bloom_filter() {
+//    Bloom_Fliter B(10240 * 8);
+//    for (int i = 0; i < 10; i++) {
+//        B.insert(i);
+//        B.insert(i * i);
+//    }
+//    for (int i = 0; i < 20; i++) {
+//        cout << B.find(i) << endl;
+//    }
+//
+//
+//}
 
 
 int main() {
     //test();
-    //test_skiplist();
-    test_bloom_filter();
+    test_skiplist();
+    //test_bloom_filter();
     return 0;
 }

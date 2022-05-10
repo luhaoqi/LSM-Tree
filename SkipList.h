@@ -2,11 +2,12 @@
 
 #include <vector>
 #include <climits>
-#include <time.h>
+#include <ctime>
 #include <string>
 #include <list>
 #include <utility>
 #include <iostream>
+#include "MurmurHash3.h"
 
 using namespace std;
 
@@ -38,12 +39,14 @@ struct SKNode {
             forwards.push_back(nullptr);
         }
     }
+
+    ~SKNode() {}
 };
 
 template<class K, class V, int MAX_LEVEL = 12>
 class SkipList : public Container<K, V> {
 private:
-    int cur_maxlevel = 0;
+//    int cur_maxlevel = 0;
     SKNode<K, V, MAX_LEVEL> *head;
     SKNode<K, V, MAX_LEVEL> *nil;
     unsigned long long s = 1;
@@ -56,7 +59,7 @@ private:
         while (result < MAX_LEVEL && my_rand() < P) {
             ++result;
         }
-        cur_maxlevel = max(cur_maxlevel, result);
+//        cur_maxlevel = max(cur_maxlevel, result);
         return result;
     }
 
@@ -69,6 +72,20 @@ public:
         for (int i = 0; i < MAX_LEVEL; ++i) {
             head->forwards[i] = nil;
         }
+    }
+
+    void clear() {
+        SKNode<K, V, MAX_LEVEL> *n1 = head;
+        SKNode<K, V, MAX_LEVEL> *n2;
+        while (n1) {
+            n2 = n1->forwards[0];
+            delete n1;
+            n1 = n2;
+        }
+    }
+
+    ~SkipList() {
+        clear();
     }
 
     void Insert(const K &key, const V &value) {
@@ -114,7 +131,7 @@ public:
         list.clear();
         SKNode<K, V, MAX_LEVEL> *p = head;
         p = p->forwards[0];
-        while (p->key < maxKey) {
+        while (p != nil) {
             list.push_back(make_pair(p->key, p->val));
             p = p->forwards[0];
         }
@@ -172,13 +189,65 @@ public:
         }
     }
 
-    ~SkipList() {
-        SKNode<K, V, MAX_LEVEL> *n1 = head;
-        SKNode<K, V, MAX_LEVEL> *n2;
-        while (n1) {
-            n2 = n1->forwards[0];
-            delete n1;
-            n1 = n2;
+    vector<bool> genBFVector(const int &BFSIZE) {
+        vector<bool> result(BFSIZE, 0);
+        SKNode<K, V, MAX_LEVEL> *p = head;
+        p = p->forwards[0];
+        unsigned int hash[4] = {0};
+        while (p != nil) {
+            MurmurHash3_x64_128(&(p->key), sizeof(p->key), 1, hash);
+            for (size_t i = 0; i < 4; i++) {
+                result[hash[i] % BFSIZE] = 1;
+            }
+            p = p->forwards[0];
         }
+        return result;
     }
+
+    /* return the num of Keys */
+    int size() {
+        int t = 0;
+        SKNode<K, V, MAX_LEVEL> *p = head;
+        p = p->forwards[0];
+        while (p != nil) {
+            t++;
+            p = p->forwards[0];
+        }
+        return t;
+    }
+
+    /* return the size of Values */
+    //TODO: 优化到过程中计算;
+    int dataSize() {
+        int t = 0;
+        SKNode<K, V, MAX_LEVEL> *p = head;
+        p = p->forwards[0];
+        while (p != nil) {
+            t += p->val.size() + 1;
+            p = p->forwards[0];
+        }
+        return t;
+    }
+
+    K getMaxKey() {
+        K t = minKey;
+        SKNode<K, V, MAX_LEVEL> *p = head;
+        p = p->forwards[0];
+        while (p != nil) {
+            t = max(t, p->key);
+            p = p->forwards[0];
+        }
+        return t;
+    }
+
+    K getMinKey() {
+        return (head->forwards[0] != nil) ? head->forwards[0]->key : maxKey;
+    }
+
+    /* 返回最底层的head */
+    SKNode<K, V, MAX_LEVEL> *getLowestHead()
+    {
+        return head;
+    }
+
 };
