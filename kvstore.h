@@ -5,6 +5,10 @@
 #include <string>
 #include "index.h"
 #include "buffer.h"
+#include <fstream>
+#include "utils.h"
+#include "SSTable.h"
+#include <queue>
 
 //TODO: LSMTree 还没有模板化
 class KVStore : public KVStoreAPI {
@@ -30,6 +34,13 @@ private:
     std::string findInSSTable(uint64_t key);
 
 public:
+    /*
+     * @param s pointer to SSTable
+     * @param offset  offset to read
+     * @return the value
+     */
+    string readValueByOffset(SSTable *s,uint32_t offset);
+
     explicit KVStore(const std::string &dir);
 
     ~KVStore();

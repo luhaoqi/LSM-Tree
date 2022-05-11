@@ -12,14 +12,19 @@ private:
 	void regular_test(uint64_t max)
 	{
 		uint64_t i;
-
 		// Test a single key
 		EXPECT(not_found, store.get(1));
+        std::cout<<"!"<<std::endl;
 		store.put(1, "SE");
+        std::cout<<"!"<<std::endl;
 		EXPECT("SE", store.get(1));
+        std::cout<<"!"<<std::endl;
 		EXPECT(true, store.del(1));
+        std::cout<<"!"<<std::endl;
 		EXPECT(not_found, store.get(1));
+        std::cout<<"!"<<std::endl;
 		EXPECT(false, store.del(1));
+        std::cout<<"!"<<std::endl;
 
 		phase();
 
@@ -110,7 +115,7 @@ int main(int argc, char *argv[])
 	std::cout << (verbose ? "ON" : "OFF")<< "]" << std::endl;
 	std::cout << std::endl;
 	std::cout.flush();
-
+//    std::cout << "!!!" << std::endl;
 	CorrectnessTest test("./data", verbose);
 
 	test.start_test();

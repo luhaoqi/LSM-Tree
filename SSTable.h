@@ -1,5 +1,6 @@
-#ifndef SSTABLE_H
-#define SSTABLE_H
+#pragma once
+#ifndef LSM_KV_SSTABLE_H
+#define LSM_KV_SSTABLE_H
 
 #include <cstdint>
 #include <utility>
@@ -24,31 +25,30 @@ private:
     int id; //在该层的编号
     uint64_t timeStamp;  //最后修改的时间戳  时间戳越大表示越晚更新
     std::vector<bool> bloomFilter;
-    std::vector<IndexNode> index;  //索引节点
-
-    //二分查找key，若存在返回offset，不存在返回0
-    uint32_t searchKey(uint64_t key) {
-        int left = 0, right = (int)index.size() - 1, mid;
-        while (left <= right) {
-            mid = (left + right) / 2;
-            if (index[mid].key == key) {
-                return index[mid].offset;
-            }
-            else if (key > index[mid].key) {
-                left = mid + 1;
-            } else {
-                right = mid - 1;
-            }
-        }
-        return 0;
-    }
 
 
 public:
     SSTable(int l, int i, uint64_t time, std::vector<bool> BF, std::vector<IndexNode> ind) :
-    level(l), id(i), timeStamp(time), bloomFilter(std::move(BF)), index(std::move(ind)){}
+            level(l), id(i), timeStamp(time), bloomFilter(std::move(BF)), index(std::move(ind)) {}
 
-    ~SSTable()= default;
+    ~SSTable() = default;
+
+    std::vector<IndexNode> index;  //索引节点
+
+    //二分查找key，返回index中第一个>=key的IndexNode(key,offset)的迭代器，没找到就返回end()
+    std::vector<IndexNode>::iterator searchKey(uint64_t key) {
+        int left = 0, right = (int) index.size() - 1, mid;
+        auto res = index.end();
+        while (left <= right) {
+            mid = (left + right) / 2;
+            if (index[mid].key >= key) {
+                res = index.begin() + mid;
+                right = mid - 1;
+            } else
+                left = mid + 1;
+        }
+        return res;
+    }
 
     //判断该SSTable中是否存在key，若存在返回offset，不存在返回0
     uint32_t hasKey(uint64_t key) {
@@ -60,7 +60,8 @@ public:
                 return 0;
             }
         }
-        return searchKey(key);
+        auto x = searchKey(key);
+        return x == index.end() ? 0 : x->offset;
     }
 
     uint64_t getTimeStamp() const { return timeStamp; }

@@ -1,12 +1,12 @@
 //
 // Created by 66lhq on 2022/5/7.
 //
-#include "SkipList.h"
 #include <string>
 #include <list>
 #include <utility>
 #include <iostream>
 #include <fstream>
+#include "kvstore.h"
 
 using namespace std;
 struct player_data {
@@ -39,7 +39,7 @@ void test() {
         char *c = new char[10];
         loadfile.read(c, 10);
         Player1.name = string(c, 10);
-        delete c;
+        delete[] c;
         c = new char[20];
         loadfile.read((char *) &Player1.score, sizeof(Player1.score)); // read int bytes
         std::cout << "Player1 name: " << Player1.name << std::endl << Player1.name.size() << std::endl;
@@ -48,7 +48,7 @@ void test() {
 }
 
 void test_skiplist() {
-    std::list <std::pair<uint64_t, std::string>> list;
+    std::list<std::pair<uint64_t, std::string>> list;
     SkipList<uint64_t, std::string> SL(0, -1, 0.25);
     SL.Insert(1, string("123"));
     SL.Insert(1, string("1"));
@@ -85,10 +85,39 @@ void test_skiplist() {
 //
 //}
 
+void test_kv() {
+    KVStore kv("./data");
+    kv.put(1, "1");
+    kv.put(2, "22");
+    kv.put(3, "333");
+    kv.put(4, "4444");
+    cout << kv.get(1) << endl;
+    cout << kv.get(2) << endl;
+    cout << kv.get(3) << endl;
+    cout << kv.get(5) << endl;
+    kv.del(2);
+    cout << kv.get(2) << endl;
+    std::list<std::pair<uint64_t, string>> list;
+    kv.scan(1, 4, list);
+    for (auto &x: list)
+        cout << "key:" << x.first << " value:" << x.second << endl;
+}
+
+void test_kv2() {
+    KVStore kv("./data");
+    cout << kv.get(1) << endl;
+    kv.put(1, "SE");
+    cout << kv.get(1) << endl;
+    cout << kv.del(1) << endl;
+    cout << kv.get(1) << endl;
+    cout << kv.del(1) << endl;
+}
 
 int main() {
     //test();
-    test_skiplist();
+    //test_skiplist();
     //test_bloom_filter();
+    //test_kv();
+    test_kv2();
     return 0;
 }

@@ -21,6 +21,7 @@ protected:
 		    const std::string &file, int line)
 	{
 		++nr_tests;
+        std::cout<<"Exp:"<<exp<<" got:"<<got<<std::endl;
 		if (exp == got) {
 			++nr_passed_tests;
 			return;
@@ -69,6 +70,7 @@ protected:
 public:
 	Test(const std::string &dir, bool v=true): store(dir), verbose(v)
 	{
+//        cout<<"Construction: TEST!\n";
 		nr_tests = 0;
 		nr_passed_tests = 0;
 		nr_phases = 0;

@@ -89,7 +89,8 @@ public:
     }
 
     void Insert(const K &key, const V &value) {
-        std::vector < SKNode<K, V, MAX_LEVEL> * > update;
+        cout << "In Insert" << endl;
+        std::vector<SKNode<K, V, MAX_LEVEL> *> update;
         for (int i = 0; i < MAX_LEVEL; i++)
             update.push_back(nullptr);
         SKNode<K, V, MAX_LEVEL> *p = head;
@@ -98,12 +99,13 @@ public:
                 p = p->forwards[i];
             }
             update[i] = p;
+            cout << "i=" << i << " update[i]=" << update[i] << endl;
         }
         p = p->forwards[0];
         if (p->key == key) p->val = value;
         else {
             int v = randomLevel();
-            SKNode<K, V, MAX_LEVEL> *x = new SKNode<K, V, MAX_LEVEL>(key, value, NORMAL);
+            auto *x = new SKNode<K, V, MAX_LEVEL>(key, value, NORMAL);
             for (int i = 0; i < v; i++) {
                 x->forwards[i] = update[i]->forwards[i];
                 update[i]->forwards[i] = x;
@@ -124,10 +126,10 @@ public:
             found = true;
             return p->val;
         }
-        return (V) NULL;
+        return V();
     }
 
-    void get_all_elm(std::list <std::pair<K, V>> &list) {
+    void get_all_elm(std::list<std::pair<K, V>> &list) {
         list.clear();
         SKNode<K, V, MAX_LEVEL> *p = head;
         p = p->forwards[0];
@@ -138,7 +140,7 @@ public:
     }
 
 
-    void Search(const K &a, const K &b, std::list <std::pair<K, V>> &list) {
+    void Search(const K &a, const K &b, std::list<std::pair<K, V>> &list) {
         list.clear();
         SKNode<K, V, MAX_LEVEL> *p = head;
         for (int i = MAX_LEVEL - 1; i >= 0; i--) {
@@ -154,7 +156,7 @@ public:
     }
 
     bool Delete(const K &key) {
-        std::vector < SKNode<K, V, MAX_LEVEL> * > update;
+        std::vector<SKNode<K, V, MAX_LEVEL> *> update;
         for (int i = 0; i < MAX_LEVEL; i++)
             update.push_back(nullptr);
         SKNode<K, V, MAX_LEVEL> *p = head;
@@ -209,6 +211,7 @@ public:
         int t = 0;
         SKNode<K, V, MAX_LEVEL> *p = head;
         p = p->forwards[0];
+//        cout << "size:\n p->key:" << p->key << endl;
         while (p != nil) {
             t++;
             p = p->forwards[0];
@@ -245,8 +248,7 @@ public:
     }
 
     /* 返回最底层的head */
-    SKNode<K, V, MAX_LEVEL> *getLowestHead()
-    {
+    SKNode<K, V, MAX_LEVEL> *getLowestHead() {
         return head;
     }
 

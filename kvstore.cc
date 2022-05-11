@@ -1,8 +1,4 @@
 #include "kvstore.h"
-#include <string>
-#include <fstream>
-#include "utils.h"
-#include "SSTable.h"
 
 KVStore::KVStore(const std::string &dir) : KVStoreAPI(dir), datadir(dir), memTable(0, -1, 0.5), maxTimeStamp(0) {
     std::string dirPath = getLevelPath(0);
@@ -80,6 +76,8 @@ std::string KVStore::getSSTablePath(int level, int id) {
  * save memTable to SSTable on disk
  */
 void KVStore::saveToDisk() {
+//    cout << "save to disk:" << memTable.size() << endl;
+    if (memTable.size() == 0) return;
     std::string foldPath, SSTablePath;
     foldPath = generateLevel(0);
     SSTablePath = getSSTablePath(0, levelFilesNum[0]);
@@ -138,17 +136,16 @@ void KVStore::saveToDisk() {
 
 std::string KVStore::findInSSTable(uint64_t key) {
     std::string result;
-//    char buf[200000] = {0};
     uint32_t offset = 0;
+//    cout << "index size: " << index.index.size() << endl;
     SSTable *SSTp = index.search(key, offset);
+//    cout << (SSTp) << endl;
     if (!SSTp) return "";
     fstream in(getSSTablePath(SSTp->getLevel(), SSTp->getId()), ios::binary | ios::in);
     in.seekg(offset, ios::beg);
-//    in.get(buf, 200000, '\0');
     std::getline(in, result, '\0');
     in.close();
 
-//    result = buf;
     if (result == "~DELETED~") return "";
     return result;
 }
@@ -158,13 +155,17 @@ std::string KVStore::findInSSTable(uint64_t key) {
  * No return values for simplicity.
  */
 void KVStore::put(uint64_t key, const std::string &s) {
+    cout << "In put function:\n key: " << key << " |value:" << s << endl;
     if (memTableSize() + 8 + 4 + s.size() > 2 * 1024 * 1024) {
+        cout << "put: mem if full! savetodisk!" << endl;
         saveToDisk();
         //TODO:compact
 //        if (levelFilesNum[0] >= 3)
 //            compact(0);
     }
+    cout << "put: Insert" << endl;
     memTable.Insert(key, s);
+    cout << "put: Over!" << endl;
 }
 
 /**
@@ -176,6 +177,7 @@ std::string KVStore::get(uint64_t key) {
     //在memTable中找
     bool flag = false;
     result = memTable.Search(key, flag);
+//    cout << "In get funtion\nflag:" << flag << " key:" << key << endl;
     if (flag && result == "~DELETED~") return "";
     if (flag && !result.empty()) return result;
     //没找到,在SSTable中找
@@ -227,20 +229,66 @@ void KVStore::reset() {
     }
 }
 
+struct pqnode {
+    SSTable *s;
+    uint64_t key, timestamp;
+    std::vector<IndexNode>::iterator it;
+
+    pqnode(SSTable *_s, uint64_t _k, uint64_t _t, std::vector<IndexNode>::iterator _it) :
+            s(_s), key(_k), timestamp(_t), it(_it) {}
+
+    //小根堆 key越小越好 key相同timestamp越大越好  重载要反着写 默认大根堆
+    bool operator<(const pqnode &x) const { return key != x.key ? key > x.key : timestamp < x.timestamp; }
+};
+
+
 /**
  * Return a list including all the key-value pair between key1 and key2.
  * keys in the list should be in an ascending order.
  * An empty string indicates not found.
  */
 void KVStore::scan(uint64_t key1, uint64_t key2, std::list<std::pair<uint64_t, std::string>> &list) {
-    vector<SSTable*> v;
-    for (auto &i:index.index)
-        for (auto &j:i)
-        {
+    list.clear();
+    memTable.Search(key1, key2, list);
+    vector<SSTable *> v;
+    for (auto &i: index.index)
+        for (auto &j: i) {
             //如果有交集;
-            if (j->getMinKey()<=key2 || j->getMaxKey()>=key1)
+            if (j->getMinKey() <= key2 || j->getMaxKey() >= key1)
                 v.push_back(j);
         }
+    uint64_t curMaxKey = 0;
+    bool flag = false;
+    priority_queue<pqnode> PQ;
+    for (auto &it: v) {
+        auto pos = it->searchKey(key1);
+        if (pos != it->index.end() && pos->key <= key2) {
+            PQ.push(pqnode(it, pos->key, it->getTimeStamp(), pos));
+//            printf("PQ PUSH: key %llu\n",pos->key);
+        }
+    }
+    while (!PQ.empty()) {
+        pqnode t = PQ.top();
+        PQ.pop();
+        //确保这个key第一次出来,第一次出来的一定是timestamp最大的;
+        if (!flag || t.key > curMaxKey) {
+            list.emplace_back(t.key, readValueByOffset(t.s, t.it->offset));
+            flag = true;
+            curMaxKey = t.key;
+            auto it = t.it + 1;
+            if (it != t.s->index.end())
+//                printf("PQ PUSH: key %llu\n",it->key);
+                if (it != t.s->index.end() && it->key <= key2)
+                    PQ.push(pqnode(t.s, it->key, t.timestamp, it)); //下一个节点 *SSTable一样，key为下一个的key,timestamp一样,迭代器+1
+        }
+    }
+}
 
-
+string KVStore::readValueByOffset(SSTable *s, uint32_t offset) {
+    string filePath = getSSTablePath(s->getLevel(), s->getId());
+    fstream in = fstream(filePath.c_str(), ios::binary | ios::in);
+    string ret;
+    in.seekg(offset, std::ios::beg);
+    std::getline(in, ret, '\0');
+    return ret;
 }
