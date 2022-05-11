@@ -8,7 +8,7 @@ class CorrectnessTest : public Test
 {
 private:
     const uint64_t SIMPLE_TEST_MAX = 512;
-    const uint64_t LARGE_TEST_MAX = 1024 * 32;
+    const uint64_t LARGE_TEST_MAX = 1024 * 64;
 
     void regular_test(uint64_t max)
     {
@@ -26,6 +26,7 @@ private:
         // Test multiple key-value pairs
         for (i = 0; i < max; ++i)
         {
+            if (i%1024==0) cout<<i<<endl;
             store.put(i, std::string(i + 1, 's'));
             EXPECT(std::string(i + 1, 's'), store.get(i));
         }
@@ -33,19 +34,33 @@ private:
 
         // Test after all insertions
         for (i = 0; i < max; ++i)
+        {
+            if (i%1024==0) cout<<i<<endl;
             EXPECT(std::string(i + 1, 's'), store.get(i));
+        }
+
         phase();
 
         // Test deletions
-        for (i = 0; i < max; i += 2)
+        for (i = 0; i < max; i += 2){
+            if (i%1024==0) cout<<i<<endl;
             EXPECT(true, store.del(i));
+        }
+
 
         for (i = 0; i < max; ++i)
+        {
+            if (i%1024==0) cout<<i<<endl;
             EXPECT((i & 1) ? std::string(i + 1, 's') : not_found,
                    store.get(i));
+        }
 
-        for (i = 1; i < max; ++i)
+
+        for (i = 1; i < max; ++i){
+            if (i%1024==0) cout<<i<<endl;
             EXPECT(i & 1, store.del(i));
+        }
+
 
         phase();
 

@@ -120,7 +120,7 @@ void Buffer::readFile(std::fstream &in) {
         tmpDatas.emplace_back(ind[i].key, value);
     }
     datas.emplace_back(tmpDatas, time); //同时存入时间戳
-    timeStamp = std::max(timeStamp, time + 1); //Buffer的时间戳是所有合并的SSTable的时间戳的最大值+1！！！
+    timeStamp = std::max(timeStamp, time); //Buffer的时间戳是所有合并的SSTable的时间戳的最大值
 }
 
 void Buffer::compact(bool flag) {
