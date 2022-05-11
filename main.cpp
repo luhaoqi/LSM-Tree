@@ -186,7 +186,6 @@ void test_kv2(uint64_t max) {
 }
 
 int main() {
-    //test();
     //test_skiplist();
     //test_bloom_filter();
     //test_kv();
