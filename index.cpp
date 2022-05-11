@@ -1,4 +1,5 @@
 #include "index.h"
+#include <iostream>
 
 SSTable *Index::readFile(const int &level, const int &id, std::fstream *in) {
     //SSTable Header: 32Byte

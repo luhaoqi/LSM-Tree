@@ -40,7 +40,7 @@ struct SKNode {
         }
     }
 
-    ~SKNode() {}
+    ~SKNode() = default;
 };
 
 template<class K, class V, int MAX_LEVEL = 12>
@@ -51,8 +51,8 @@ private:
     SKNode<K, V, MAX_LEVEL> *nil;
     unsigned long long s = 1;
     K minKey, maxKey;
-
-    double my_rand() { return (rand() + 0.0) / (RAND_MAX + 1); }
+//TODO:rand更换
+    double my_rand() { return (rand() + 0.0) / ((double) RAND_MAX + 1); }
 
     int randomLevel() {
         int result = 1;
@@ -75,21 +75,25 @@ public:
     }
 
     void clear() {
-        SKNode<K, V, MAX_LEVEL> *n1 = head;
+        SKNode<K, V, MAX_LEVEL> *n1 = head->forwards[0];
         SKNode<K, V, MAX_LEVEL> *n2;
-        while (n1) {
+        while (n1 != nil) {
             n2 = n1->forwards[0];
             delete n1;
             n1 = n2;
+        }
+        for (int i = 0; i < MAX_LEVEL; ++i) {
+            head->forwards[i] = nil;
         }
     }
 
     ~SkipList() {
         clear();
+        delete head;
+        delete nil;
     }
 
     void Insert(const K &key, const V &value) {
-        cout << "In Insert" << endl;
         std::vector<SKNode<K, V, MAX_LEVEL> *> update;
         for (int i = 0; i < MAX_LEVEL; i++)
             update.push_back(nullptr);
@@ -99,7 +103,6 @@ public:
                 p = p->forwards[i];
             }
             update[i] = p;
-            cout << "i=" << i << " update[i]=" << update[i] << endl;
         }
         p = p->forwards[0];
         if (p->key == key) p->val = value;
@@ -211,7 +214,6 @@ public:
         int t = 0;
         SKNode<K, V, MAX_LEVEL> *p = head;
         p = p->forwards[0];
-//        cout << "size:\n p->key:" << p->key << endl;
         while (p != nil) {
             t++;
             p = p->forwards[0];

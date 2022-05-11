@@ -76,8 +76,15 @@ std::string KVStore::getSSTablePath(int level, int id) {
  * save memTable to SSTable on disk
  */
 void KVStore::saveToDisk() {
-//    cout << "save to disk:" << memTable.size() << endl;
     if (memTable.size() == 0) return;
+//    cout << "save!" << endl;
+//    if (index.index.size()==1 && index.index[0].size() == 16)
+//    {
+//        bool flag=false;
+//        cout<<"!!!! ";
+//        cout<<(memTable.Search(3441,flag)=="")<<endl;
+//    }
+
     std::string foldPath, SSTablePath;
     foldPath = generateLevel(0);
     SSTablePath = getSSTablePath(0, levelFilesNum[0]);
@@ -137,9 +144,7 @@ void KVStore::saveToDisk() {
 std::string KVStore::findInSSTable(uint64_t key) {
     std::string result;
     uint32_t offset = 0;
-//    cout << "index size: " << index.index.size() << endl;
     SSTable *SSTp = index.search(key, offset);
-//    cout << (SSTp) << endl;
     if (!SSTp) return "";
     fstream in(getSSTablePath(SSTp->getLevel(), SSTp->getId()), ios::binary | ios::in);
     in.seekg(offset, ios::beg);
@@ -155,17 +160,13 @@ std::string KVStore::findInSSTable(uint64_t key) {
  * No return values for simplicity.
  */
 void KVStore::put(uint64_t key, const std::string &s) {
-    cout << "In put function:\n key: " << key << " |value:" << s << endl;
-    if (memTableSize() + 8 + 4 + s.size() > 2 * 1024 * 1024) {
-        cout << "put: mem if full! savetodisk!" << endl;
+    if (memTableSize() + 8 + 4 + s.size() + 1 > 2 * 1024 * 1024) {
         saveToDisk();
         //TODO:compact
 //        if (levelFilesNum[0] >= 3)
 //            compact(0);
     }
-    cout << "put: Insert" << endl;
     memTable.Insert(key, s);
-    cout << "put: Over!" << endl;
 }
 
 /**
@@ -177,7 +178,6 @@ std::string KVStore::get(uint64_t key) {
     //在memTable中找
     bool flag = false;
     result = memTable.Search(key, flag);
-//    cout << "In get funtion\nflag:" << flag << " key:" << key << endl;
     if (flag && result == "~DELETED~") return "";
     if (flag && !result.empty()) return result;
     //没找到,在SSTable中找
@@ -198,6 +198,7 @@ bool KVStore::del(uint64_t key) {
         if (value == "~DELETED~") return false;
         //否则 存在未被删除 则打上删除标记
         memTable.Delete(key);
+        memTable.Insert(key, "~DELETED~");
         return true;
     }
     //如果没有在memTable找到,在SSTable接着找
@@ -215,7 +216,8 @@ void KVStore::reset() {
     memTable.clear();
     index.clear();
     //buffer.clear();
-
+    maxTimeStamp = 0;
+    levelFilesNum.clear();
     int level = 0;
     std::string dirPath = getLevelPath(level);
     for (; utils::dirExists(dirPath); level++, dirPath = getLevelPath(level)) {
@@ -227,6 +229,7 @@ void KVStore::reset() {
         }
         utils::rmdir(dirPath.c_str());
     }
+//    cout<<dirPath<<" "<<utils::dirExists(dirPath)<<endl;
 }
 
 struct pqnode {

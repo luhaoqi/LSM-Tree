@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include "kvstore.h"
+#include <assert.h>
 
 using namespace std;
 struct player_data {
@@ -103,14 +104,85 @@ void test_kv() {
         cout << "key:" << x.first << " value:" << x.second << endl;
 }
 
-void test_kv2() {
+void test_kv2(uint64_t max) {
     KVStore kv("./data");
-    cout << kv.get(1) << endl;
-    kv.put(1, "SE");
-    cout << kv.get(1) << endl;
-    cout << kv.del(1) << endl;
-    cout << kv.get(1) << endl;
-    cout << kv.del(1) << endl;
+    kv.reset();
+    uint64_t i;
+    for (i = 0; i < max; ++i) {
+        kv.put(i, std::string(i + 1, 's'));
+        assert(std::string(i + 1, 's') == kv.get(i));
+        //EXPECT(std::string(i+1, 's'), kv.get(i));
+    }
+    puts("1 pass!");
+    // Test after all insertions
+    for (i = 0; i < max; ++i) {
+        assert(std::string(i + 1, 's') == kv.get(i));
+//        if (i == 3441) {
+//            uint32_t offset;
+//            auto S = kv.index.search(3441, offset);
+//            cout << S->getLevel() << " " << S->getId() << " " << offset << S->getTimeStamp() << endl;
+//            fstream in(kv.getSSTablePath(S->getLevel(), S->getId()), ios::binary | ios::in);
+//            string res;
+//            in.seekg(offset, ios::beg);
+//            std::getline(in,res,'\0');
+//            cout<<res;
+//            cout << "!" << endl;
+//            in.close();
+//            cout << kv.get(i) << endl;
+//        }
+    }
+
+    //EXPECT(std::string(i + 1, 's'), kv.get(i));
+    puts("2 pass!");
+    // Test deletions
+    for (i = 0; i < max; i += 2) {
+        assert(true == kv.del(i));
+    }
+    puts("del pass!");
+    string not_found;
+    // Prepare data for Test Mode
+    for (i = 0; i < max; ++i) {
+//        cout << i << endl;
+//        if (i == 3441) {
+//            uint32_t offset;
+//            auto S = kv.index.search(3441, offset);
+//            cout << S->getLevel() << " " << S->getId() << " " << offset << S->getTimeStamp() << endl;
+//            fstream in(kv.getSSTablePath(S->getLevel(), S->getId()), ios::binary | ios::in);
+//            char res[200];
+//            in.seekg(offset, ios::beg);
+//            in.read(res, 100);
+//            for (int j = 0; j < 100; j++) cout << ((res[j] == '\0') ? '0' : (char) res[j]);
+//            cout << "!" << endl;
+//            in.close();
+//            cout << kv.get(i) << endl;
+//
+//            break;
+//        }
+        switch (i & 3) {
+            case 0:
+                assert(not_found == kv.get(i));
+                kv.put(i, std::string(i + 1, 't'));
+                break;
+            case 1:
+                assert(std::string(i + 1, 's') == kv.get(i));
+                kv.put(i, std::string(i + 1, 't'));
+                break;
+            case 2:
+                assert(not_found == kv.get(i));
+                break;
+            case 3:
+                assert(std::string(i + 1, 's') == kv.get(i));
+                break;
+//                assert(0);
+        }
+    }
+    puts("3 pass!");
+//    cout << kv.get(1) << endl;
+//    kv.put(1, "SE");
+//    cout << kv.get(1) << endl;
+//    cout << kv.del(1) << endl;
+//    cout << kv.get(1) << endl;
+//    cout << kv.del(1) << endl;
 }
 
 int main() {
@@ -118,6 +190,6 @@ int main() {
     //test_skiplist();
     //test_bloom_filter();
     //test_kv();
-    test_kv2();
+    test_kv2(1024 * 32);
     return 0;
 }

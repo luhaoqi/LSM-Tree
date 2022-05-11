@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 #include "MurmurHash3.h"
+#include <iostream>
 
 const int BloomFilterSize = 81920;
 
@@ -36,6 +37,7 @@ public:
     std::vector<IndexNode> index;  //索引节点
 
     //二分查找key，返回index中第一个>=key的IndexNode(key,offset)的迭代器，没找到就返回end()
+    //注意 返回的不一定相等！！需要判断！
     std::vector<IndexNode>::iterator searchKey(uint64_t key) {
         int left = 0, right = (int) index.size() - 1, mid;
         auto res = index.end();
@@ -61,7 +63,7 @@ public:
             }
         }
         auto x = searchKey(key);
-        return x == index.end() ? 0 : x->offset;
+        return (x == index.end() || x->key != key) ? 0 : x->offset;  //需要判断是否相等！！！
     }
 
     uint64_t getTimeStamp() const { return timeStamp; }

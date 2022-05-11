@@ -11,4 +11,4 @@ persistence: kvstore.o persistence.o index.cpp buffer.cpp
 main: kvstore.o main.cpp index.cpp buffer.cpp
 
 clean:
-	-rm -f correctness persistence *.o
+	-del correctness persistence *.o

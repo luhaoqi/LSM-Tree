@@ -21,7 +21,6 @@ protected:
 		    const std::string &file, int line)
 	{
 		++nr_tests;
-        std::cout<<"Exp:"<<exp<<" got:"<<got<<std::endl;
 		if (exp == got) {
 			++nr_passed_tests;
 			return;

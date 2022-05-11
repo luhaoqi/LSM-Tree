@@ -13,7 +13,7 @@
 //TODO: LSMTree 还没有模板化
 class KVStore : public KVStoreAPI {
     // You can add your implementation here
-private:
+public:
     std::string datadir;
     SkipList<uint64_t, std::string> memTable;
     Index index;
