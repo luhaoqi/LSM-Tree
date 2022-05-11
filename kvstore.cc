@@ -12,8 +12,9 @@ KVStore::KVStore(const std::string &dir) : KVStoreAPI(dir), datadir(dir), memTab
                 in.close();
                 break;
             }
+//            cout << "construction:level=" << level << "id=" << id << endl;
             levelFilesNum[level]++;
-            SSTable *tmp = index.readFile(level, id, &in);
+            SSTable *tmp = index.readFile(level, id, in);
             if (tmp->getTimeStamp() >= maxTimeStamp) {
                 maxTimeStamp = tmp->getTimeStamp() + 1; //计算所有SSTable的maxtimeStamp 并且新的timeStamp需要+1
             }
@@ -21,6 +22,7 @@ KVStore::KVStore(const std::string &dir) : KVStoreAPI(dir), datadir(dir), memTab
             in.close();
         }
     }
+//    if (levelFilesNum.empty()) levelFilesNum.push_back(0); //savetodisk()里面generate
 }
 
 KVStore::~KVStore() {
@@ -42,7 +44,7 @@ int KVStore::memTableSize() {
  * @return the Path of the level
  */
 std::string KVStore::getLevelPath(int level) {
-    std::string path = datadir + "/level-" + to_string(level) + "/";
+    std::string path = datadir + "/level-" + to_string(level) + '/';
     return path;
 }
 
@@ -68,7 +70,7 @@ std::string KVStore::generateLevel(int level) {
  */
 std::string KVStore::getSSTablePath(int level, int id) {
     std::string path = getLevelPath(level);
-    path += "/SSTable" + to_string(id) + ".sst";
+    path += "SSTable" + to_string(id) + ".sst";
     return path;
 }
 
@@ -77,16 +79,9 @@ std::string KVStore::getSSTablePath(int level, int id) {
  */
 void KVStore::saveToDisk() {
     if (memTable.size() == 0) return;
-//    cout << "save!" << endl;
-//    if (index.index.size()==1 && index.index[0].size() == 16)
-//    {
-//        bool flag=false;
-//        cout<<"!!!! ";
-//        cout<<(memTable.Search(3441,flag)=="")<<endl;
-//    }
-
     std::string foldPath, SSTablePath;
     foldPath = generateLevel(0);
+//    cout << "save! level 0, id=" << levelFilesNum[0] << endl;
     SSTablePath = getSSTablePath(0, levelFilesNum[0]);
     levelFilesNum[0]++;
     fstream out(SSTablePath.c_str(), ios::binary | ios::out);
@@ -136,7 +131,7 @@ void KVStore::saveToDisk() {
 
     //读取到index
     fstream in(SSTablePath.c_str(), ios::binary | ios::in);
-    index.readFile(0, levelFilesNum[0] - 1, &in);
+    index.readFile(0, levelFilesNum[0] - 1, in);
     in.close();
     memTable.clear(); //写入完成后，应清空memTable
 }
@@ -162,9 +157,8 @@ std::string KVStore::findInSSTable(uint64_t key) {
 void KVStore::put(uint64_t key, const std::string &s) {
     if (memTableSize() + 8 + 4 + s.size() + 1 > 2 * 1024 * 1024) {
         saveToDisk();
-        //TODO:compact
-//        if (levelFilesNum[0] >= 3)
-//            compact(0);
+        if (levelFilesNum[0] >= 3)
+            compact(0);
     }
     memTable.Insert(key, s);
 }
@@ -215,17 +209,20 @@ bool KVStore::del(uint64_t key) {
 void KVStore::reset() {
     memTable.clear();
     index.clear();
-    //buffer.clear();
+    buffer.clear();
     maxTimeStamp = 0;
     levelFilesNum.clear();
     int level = 0;
     std::string dirPath = getLevelPath(level);
     for (; utils::dirExists(dirPath); level++, dirPath = getLevelPath(level)) {
+//        cout << "reset:level=" << level << endl;
         std::vector<string> files;
         utils::scanDir(dirPath, files);
         for (auto &file: files) {
             std::string filePath = dirPath + file;
             utils::rmfile(filePath.c_str());
+//            cout<<filePath<<endl;
+//            cout<<utils::rmfile(filePath.c_str())<<endl;
         }
         utils::rmdir(dirPath.c_str());
     }
@@ -294,4 +291,92 @@ string KVStore::readValueByOffset(SSTable *s, uint32_t offset) {
     in.seekg(offset, std::ios::beg);
     std::getline(in, ret, '\0');
     return ret;
+}
+
+void KVStore::compact(int level) {
+//    puts("----------- compact begin --------------");
+//    cout << "level=" << level << " filenum=" << levelFilesNum[level] << endl;
+    //每次合并使用buffer暂存中间数据 每次清空;
+    buffer.clear();
+    string SSTablePath;
+    int start = level ? 1 << (level + 1) : 0; //第0层需要合并所有sst文件
+    int oldLevelFilesNum = levelFilesNum[level];
+    //此处采用的策略是把最新加入的放入开头，故每次删除结尾的文件即可
+    //TODO:Rename策略可以优化的更好一些，不过单次Rename只要O(1)到也问题不大，重点是重复的过程可以去掉
+    //把第level层要合并的SSTable存到buffer中，并删除
+    for (int i = start; i < oldLevelFilesNum; i++) {
+        SSTablePath = getSSTablePath(level, i);
+        fstream in(SSTablePath.c_str(), ios::binary | ios::in);
+        buffer.readFile(in);  //该文件读入
+        in.close();
+        utils::rmfile(SSTablePath.c_str()); //该文件删除
+        index.deleteFileIndex(level, i);
+        levelFilesNum[level]--;
+    }
+    int nextLevel = level + 1;
+    if ((int) levelFilesNum.size() == nextLevel) {
+        buffer.compact(true);      //最后一层合并时需要删除~DELETED~
+        generateLevel(nextLevel);
+    } else {
+        oldLevelFilesNum = levelFilesNum[nextLevel];
+        uint64_t minKey = buffer.getMinKey();
+        uint64_t maxKey = buffer.getMaxKey();
+        auto interSSTable = index.findIntersectionId(nextLevel, minKey, maxKey); //从index取出下一层有交集的SSTable的id,并在其中删除
+        for (int i: interSSTable) //把下层有交集的SSTable读入buffer，并删除文件
+        {
+            SSTablePath = getSSTablePath(nextLevel, i);
+            fstream in(SSTablePath.c_str(), ios::binary | ios::in);
+            buffer.readFile(in);
+            in.close();
+            utils::rmfile(SSTablePath.c_str());
+            levelFilesNum[nextLevel]--;
+        }
+        for (int i = 0, k = 0; i < oldLevelFilesNum; i++) //重命名下层文件名
+        {
+            if (SSTableFileExists(nextLevel, i)) {
+                rename(getSSTablePath(nextLevel, i).c_str(),
+                       getSSTablePath(nextLevel, k).c_str());  //rename函数windows和linux通用
+                ++k;
+            }
+        }
+        buffer.compact(false);
+    }
+    while (!buffer.isOutputEmpty()) {
+//        //检查下一路径是否存在
+//        if (!utils::dirExists(getLevelPath(nextLevel)))
+//            utils::mkdir(getLevelPath(nextLevel).c_str());
+        if (SSTableFileExists(nextLevel, 0)) //在开头插入，方便之后取出最早更新的合并，已有的文件名依次往后挪一个
+        {
+            for (int i = levelFilesNum[nextLevel] - 1; i >= 0; --i) {
+                rename(getSSTablePath(nextLevel, i).c_str(), getSSTablePath(nextLevel, i + 1).c_str());
+                index.changeIndex(nextLevel, i, i + 1);
+            }
+        }
+        SSTablePath = getSSTablePath(nextLevel, 0);
+//        cout << SSTablePath << endl;
+        levelFilesNum[nextLevel]++;
+        fstream out(SSTablePath.c_str(), ios::binary | ios::out);
+        buffer.write(out);
+        out.close();
+//        puts("write over");
+        //下一层的索引内容需要实时更新到index中记录的SSTable中
+        fstream in(SSTablePath.c_str(), ios::binary | ios::in);
+        index.readFile(nextLevel, 0, in);
+        in.close();
+    }
+    if (levelFilesNum[nextLevel] > (1 << (nextLevel + 1))) {
+//        cout << "compact:  nextlevel=" << nextLevel << " num=" << levelFilesNum[nextLevel] << "   go on!" << endl;
+        compact(nextLevel);
+    }
+
+}
+
+bool KVStore::SSTableFileExists(int level, int id) {
+    string SSTablePath = getSSTablePath(level, id);
+    fstream in(SSTablePath.c_str(), ios::binary | ios::in);
+    if (!in.is_open()) {
+        in.close();
+        return false;
+    }
+    return true;
 }

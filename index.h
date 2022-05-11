@@ -21,9 +21,9 @@ public:
         clear();
     }
 
-    //读取level层第id个SSTable, 文件流in作为参数传入
+    //读取level层第id个SSTable的*索引区*, 文件流in作为参数传入
     //@return 返回生成的SSTable*
-    SSTable *readFile(const int &level, const int &id, std::fstream *in);
+    SSTable *readFile(const int &level, const int &id, std::fstream &in);
 
     //@param key 需要查找的key
     //@return 对应的SSTable的指针并且设置offset到参数

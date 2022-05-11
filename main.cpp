@@ -190,6 +190,8 @@ int main() {
     //test_skiplist();
     //test_bloom_filter();
     //test_kv();
-    test_kv2(1024 * 32);
+    //test_kv2(1024 * 32);
+    KVStore kv("./data");
+    cout<<kv.get(1)<<endl;
     return 0;
 }

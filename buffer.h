@@ -44,9 +44,9 @@ public:
     ~Buffer() = default;
 
     //把要合并的SSTable读入datas
-    void readFile(std::fstream *in);
+    void readFile(std::fstream &in);
 
-    //flag为true表示下一层为空，合并时需要删除~DELETED~
+    //flag为true表示下一层为空，合并时需要删除~DELETED~ 结果存入output
     void compact(bool flag);
 
     void clear() {
@@ -56,7 +56,7 @@ public:
     }
 
     //以SSTable形式输出2M数据
-    void write(std::fstream *out);
+    void write(std::fstream &out);
 
     uint64_t getMinKey();
 

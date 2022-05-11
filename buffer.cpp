@@ -1,13 +1,13 @@
 #include "buffer.h"
 
 std::vector<dataNode> Buffer::get2MVector(std::vector<bool> &BF) {
+//    std::cout << "output:" << output.size() << std::endl;
     BF.assign(BloomFilterSize, false);
     const int MAXSIZE = 2 * 1024 * 1024; //2M
     int tmpSize = 32 + 10240;
     std::vector<dataNode> result;
     auto it = output.begin();
-    while (true) {
-        if (output.empty()) break;
+    while (it != output.end()) {
         tmpSize += (8 + 4);
         tmpSize += (int) it->value.size() + 1;
         if (tmpSize > MAXSIZE) break;
@@ -19,13 +19,15 @@ std::vector<dataNode> Buffer::get2MVector(std::vector<bool> &BF) {
         for (unsigned int i: hash) {
             BF[i % BloomFilterSize] = true;
         }
+        it++;
     }
+    //TODO:output换个list
     //一次性删除
     output.erase(output.begin(), it);
     return result;
 }
 
-void Buffer::write(std::fstream *out) {
+void Buffer::write(std::fstream &out) {
     if (output.empty()) return;
 
     //SSTable Header: 32Byte
@@ -33,17 +35,17 @@ void Buffer::write(std::fstream *out) {
     std::vector<bool> BF;
     std::vector<dataNode> data = get2MVector(BF);
     //写入时间戳
-    out->write(reinterpret_cast<const char *>(&timeStamp), sizeof(timeStamp));
+    out.write(reinterpret_cast<const char *>(&timeStamp), sizeof(timeStamp));
 
     //写入键值对数量
     uint64_t size = data.size();
-    out->write(reinterpret_cast<const char *>(&size), sizeof(size));
+    out.write(reinterpret_cast<const char *>(&size), sizeof(size));
 
     //写入键最小值和最大值
     uint64_t minKey = data.front().key;
     uint64_t maxKey = data.back().key;
-    out->write(reinterpret_cast<const char *>(&minKey), sizeof(minKey));
-    out->write(reinterpret_cast<const char *>(&maxKey), sizeof(maxKey));
+    out.write(reinterpret_cast<const char *>(&minKey), sizeof(minKey));
+    out.write(reinterpret_cast<const char *>(&maxKey), sizeof(maxKey));
 
     //写入BloomFilter
     for (size_t i = 0; i < BloomFilterSize; i += 8) {
@@ -53,20 +55,20 @@ void Buffer::write(std::fstream *out) {
                 b |= (1 << (7 - j));
             }
         }
-        out->write(reinterpret_cast<const char *>(&b), sizeof(b));
+        out.write(reinterpret_cast<const char *>(&b), sizeof(b));
     }
 
     //写入索引区
     uint32_t offset = 32 + 10240 + size * (8 + 4);
     for (size_t i = 0; i < size; i++) {
-        out->write(reinterpret_cast<const char *>(&(data[i].key)), sizeof(data[i].key));
-        out->write(reinterpret_cast<const char *>(&offset), sizeof(offset));
+        out.write(reinterpret_cast<const char *>(&(data[i].key)), sizeof(data[i].key));
+        out.write(reinterpret_cast<const char *>(&offset), sizeof(offset));
         offset += data[i].value.size() + 1;
     }
 
     //写入数据区
     for (size_t i = 0; i < size; i++) {
-        out->write(data[i].value.c_str(), data[i].value.size() + 1);
+        out.write(data[i].value.c_str(), data[i].value.size() + 1);
     }
 }
 
@@ -86,42 +88,39 @@ uint64_t Buffer::getMaxKey() {
     return maxKey;
 }
 
-void Buffer::readFile(std::fstream *in) {
+void Buffer::readFile(std::fstream &in) {
     //SSTable Header: 32Byte
     //timestamp(8byte) + number of keys(8byte) + MinKey(8byte) + MaxKey(8byte)
 
     //读取时间戳
     uint64_t time;
-    in->read((char *) &time, sizeof(time));
+    in.read((char *) &time, sizeof(time));
 
     //读取键值对数量
     uint64_t size = 0;
-    in->read((char *) &size, sizeof(size));
+    in.read((char *) &size, sizeof(size));
 
     //读取索引区
-    in->seekg(32 + 10240, std::ios::beg);
+    in.seekg(32 + 10240, std::ios::beg);
     std::vector<IndexNode> ind;
     uint64_t key;
     uint32_t offset;
     for (size_t i = 0; i < size; i++) {
-        in->read((char *) &key, sizeof(key));
-        in->read((char *) &offset, sizeof(offset));
+        in.read((char *) &key, sizeof(key));
+        in.read((char *) &offset, sizeof(offset));
         ind.emplace_back(key, offset);
     }
 
     //记录到dataList
     std::list<dataNode> tmpDatas;
-    //TODO: check if ok;
-//    char buf[200000] = {0};
     std::string value;
     for (size_t i = 0; i < size; i++) {
-        in->seekg(ind[i].offset, std::ios::beg);
-        std::getline(*in, value, '\0');
-//        in->get(buf, 200000, '\0');
-//        value = buf;
+        in.seekg(ind[i].offset, std::ios::beg);
+        std::getline(in, value, '\0');
         tmpDatas.emplace_back(ind[i].key, value);
     }
-    datas.emplace_back(tmpDatas, time);
+    datas.emplace_back(tmpDatas, time); //同时存入时间戳
+    timeStamp = std::max(timeStamp, time + 1); //Buffer的时间戳是所有合并的SSTable的时间戳的最大值+1！！！
 }
 
 void Buffer::compact(bool flag) {

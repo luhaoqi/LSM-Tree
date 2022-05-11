@@ -1,24 +1,24 @@
 #include "index.h"
 #include <iostream>
 
-SSTable *Index::readFile(const int &level, const int &id, std::fstream *in) {
+SSTable *Index::readFile(const int &level, const int &id, std::fstream &in) {
     //SSTable Header: 32Byte
     //timestamp(8byte) + number of keys(8byte) + MinKey(8byte) + MaxKey(8byte)
 
     //读取时间戳
     uint64_t timeStamp;
-    in->read((char *) &timeStamp, sizeof(timeStamp));
+    in.read((char *) &timeStamp, sizeof(timeStamp));
 
     //读取键值对数量
     uint64_t size = 0;
-    in->read((char *) &size, sizeof(size));
+    in.read((char *) &size, sizeof(size));
 
     //读取BloomFilter
-    in->seekg(32, std::ios::beg); //移动读写位置到离开始位置32字节处
+    in.seekg(32, std::ios::beg); //移动读写位置到离开始位置32字节处
     std::vector<bool> BF(BloomFilterSize, false);
     char b;
     for (size_t i = 0; i < BloomFilterSize; i += 8) {
-        in->read(&b, sizeof(b));
+        in.read(&b, sizeof(b));
         for (size_t j = 0; j < 8; j++) {
             if (b & (1 << (7 - j))) {
                 BF[i + j] = true;
@@ -31,8 +31,8 @@ SSTable *Index::readFile(const int &level, const int &id, std::fstream *in) {
     uint64_t key;
     uint32_t offset;
     for (size_t i = 0; i < size; i++) {
-        in->read((char *) &key, sizeof(key));
-        in->read((char *) &offset, sizeof(offset));
+        in.read((char *) &key, sizeof(key));
+        in.read((char *) &offset, sizeof(offset));
         ind.emplace_back(key, offset);
     }
 
