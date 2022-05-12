@@ -7,12 +7,14 @@
 #include <iostream>
 #include <fstream>
 #include "kvstore.h"
-#include <assert.h>
+#include <cassert>
+#include <random>
+#include <chrono>
 
 using namespace std;
 struct player_data {
     std::string name;
-    int score;
+    int score{};
 };
 
 void f(const int &x) {
@@ -58,16 +60,16 @@ void test_skiplist() {
     bool flag = false;
     cout << SL.Search(1, flag) << endl;
     SL.Search(1, 3, list);
-    for (auto x: list)
+    for (const auto &x: list)
         cout << x.second << " ";
     cout << endl;
     SL.Delete(2);
     SL.Search(1, 3, list);
-    for (auto x: list)
+    for (const auto &x: list)
         cout << x.second << " ";
     cout << endl;
     SL.get_all_elm(list);
-    for (auto x: list)
+    for (const auto &x: list)
         cout << x.second << " ";
     cout << endl;
     cout << SL.size() << " " << SL.dataSize() << endl;
@@ -185,12 +187,68 @@ void test_kv2(uint64_t max) {
 //    cout << kv.del(1) << endl;
 }
 
+void test_for_latency(int optNum) {
+    KVStore kv("./data");
+    kv.reset();
+    std::random_device dev;
+    std::mt19937 rng(dev());
+    uint64_t maxKey = 0xffffffffffffffff, maxLen = 5;
+    std::uniform_int_distribution<uint64_t> key_scope(0, maxKey);
+    std::uniform_int_distribution<uint64_t> len_scope(3, maxLen);
+    std::uniform_int_distribution<char> abc('a', 'z');
+
+    std::vector<uint64_t> res;
+
+    //测试put
+    auto start = std::chrono::high_resolution_clock::now();
+//    int optNum = 100000;
+    for (int i = 1; i <= optNum; i++) {
+        res.push_back(key_scope(rng));
+        kv.put(res.back(), string(len_scope(rng), abc(rng)));
+    }
+    auto totTime = chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() - start).count();
+    cout << "Put: totTime:" << totTime << " eachTime:" << totTime / (double) optNum << endl;
+
+    //测试get 命中情况
+    start = std::chrono::high_resolution_clock::now();
+//    optNum = 100000;
+    for (int i = 1; i <= optNum; i++)
+        kv.get(res[i - 1]);
+    totTime = chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() - start).count();
+    cout << "Get(hit): totTime:" << totTime << " eachTime:" << totTime / (double) optNum << endl;
+
+    ////测试get 随机情况 大概率不命中
+    start = std::chrono::high_resolution_clock::now();
+//    optNum = 100000;
+    for (int i = 1; i <= optNum; i++)
+        kv.get(key_scope(rng));
+    totTime = chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() - start).count();
+    cout << "Get(random, most miss): totTime:" << totTime << " eachTime:" << totTime / (double) optNum << endl;
+
+    ////测试del
+    start = std::chrono::high_resolution_clock::now();
+//    optNum = 100000;
+    for (int i = 1; i <= optNum; i++)
+        kv.get(res[i-1]);
+    totTime = chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() - start).count();
+    cout << "del: totTime:" << totTime << " eachTime:" << totTime / (double) optNum << endl;
+}
+
+void test_for_throughput() {
+
+}
+
 int main() {
     //test_skiplist();
     //test_bloom_filter();
     //test_kv();
     //test_kv2(1024 * 32);
-    KVStore kv("./data");
-    cout<<kv.get(1)<<endl;
+//    KVStore kv("./data");
+//    cout<<kv.get(1)<<endl;
+    test_for_latency(20000);
     return 0;
 }

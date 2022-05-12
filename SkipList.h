@@ -7,6 +7,7 @@
 #include <list>
 #include <utility>
 #include <iostream>
+#include <random>
 #include "MurmurHash3.h"
 
 using namespace std;
@@ -51,8 +52,17 @@ private:
     SKNode<K, V, MAX_LEVEL> *nil;
     unsigned long long s = 1;
     K minKey, maxKey;
-//TODO:rand更换
-    double my_rand() { return (rand() + 0.0) / ((double) RAND_MAX + 1); }
+    const double P;
+
+    std::random_device dev;
+    std::mt19937 rng;
+
+    std::uniform_real_distribution<double> p_scope;
+
+    double my_rand() {
+        return p_scope(rng);
+//        return (rand() + 0.0) / ((double) RAND_MAX + 1);
+    }
 
     int randomLevel() {
         int result = 1;
@@ -63,10 +73,10 @@ private:
         return result;
     }
 
-    const double P;
 
 public:
-    SkipList(const K &_minKey, const K &_maxKey, const double &P_ = 0.5) : minKey(_minKey), maxKey(_maxKey), P(P_) {
+    SkipList(const K &_minKey, const K &_maxKey, const double &P_ = 0.5) : minKey(_minKey), maxKey(_maxKey), P(P_),
+                                                                           rng(dev()), p_scope(0, 1) {
         head = new SKNode<K, V, MAX_LEVEL>(_minKey, SKNodeType::HEAD);
         nil = new SKNode<K, V, MAX_LEVEL>(_maxKey, SKNodeType::NIL);
         for (int i = 0; i < MAX_LEVEL; ++i) {
